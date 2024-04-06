@@ -150,5 +150,5 @@ bazel-testlogs/
 *.bak
 *.tmp
 *.log
-*.bazel
 *.bazelignore
+.yarn
