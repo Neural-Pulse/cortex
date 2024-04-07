@@ -1,0 +1,32 @@
+# Use uma imagem base do Golang
+FROM golang:1.17-alpine AS builder
+
+# Define o diretório de trabalho dentro do contêiner
+WORKDIR /app
+
+# Copia os arquivos necessários para dentro do contêiner
+COPY go.mod go.sum ./
+
+# Baixa e instala as dependências do Go
+RUN go mod download
+
+# Copia o restante dos arquivos para dentro do contêiner
+COPY . .
+
+# Compila o código Go para um binário
+RUN CGO_ENABLED=0 GOOS=linux go build -o app .
+
+# Segunda etapa de construção, para criar uma imagem mais leve
+FROM alpine:latest  
+
+# Define o diretório de trabalho dentro do contêiner
+WORKDIR /root/
+
+# Copia o binário compilado da etapa anterior
+COPY --from=builder /app/app .
+
+# Expõe a porta 8080 para acesso externo
+EXPOSE 8080
+
+# Comando para iniciar a aplicação
+CMD ["./app"]
