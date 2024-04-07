@@ -1,0 +1,20 @@
+# Use uma imagem base do Node.js
+FROM node:20-alpine
+
+# Define o diretório de trabalho dentro do contêiner
+WORKDIR /app
+
+# Copia os arquivos necessários para dentro do contêiner
+COPY package.json package-lock.json /app/
+
+# Instala as dependências do Node.js
+RUN npm install
+
+# Copia o restante dos arquivos para dentro do contêiner
+COPY . .
+
+# Expõe a porta 3000 para acesso externo
+EXPOSE 3000
+
+# Comando para iniciar a aplicação em modo de desenvolvimento
+CMD ["npm", "run", "dev"]
