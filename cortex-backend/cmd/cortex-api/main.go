@@ -11,6 +11,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/elastic/go-elasticsearch/esapi"
 	elasticsearch "github.com/elastic/go-elasticsearch/v8"
@@ -104,6 +105,8 @@ func dataBaseConfig(c *gin.Context) {
 }
 
 func fetchAndIndexAllMetadata(db *sql.DB, es *elasticsearch.Client, indexName string) error {
+	var wg sync.WaitGroup
+
 	// Fetch all databases (schemas)
 	rows, err := db.Query("SHOW DATABASES")
 	if err != nil {
@@ -145,19 +148,24 @@ func fetchAndIndexAllMetadata(db *sql.DB, es *elasticsearch.Client, indexName st
 					return err
 				}
 
-				// Index the metadata into Elasticsearch
-				metadata := map[string]interface{}{
-					"database_name": databaseName,
-					"table_name":    tableName,
-					"column_name":   columnName,
-				}
-				err = indexMetadataIntoElasticsearch(es, indexName, []map[string]interface{}{metadata})
-				if err != nil {
-					return err
-				}
+				wg.Add(1)
+				go func(databaseName, tableName, columnName string) {
+					defer wg.Done()
+					metadata := map[string]interface{}{
+						"database_name": databaseName,
+						"table_name":    tableName,
+						"column_name":   columnName,
+					}
+					err := indexMetadataIntoElasticsearch(es, indexName, []map[string]interface{}{metadata})
+					if err != nil {
+						log.Printf("Error indexing metadata: %s", err)
+					}
+				}(databaseName, tableName, columnName)
 			}
 		}
 	}
+
+	wg.Wait()
 	return nil
 }
 
