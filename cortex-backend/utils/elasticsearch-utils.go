@@ -2,14 +2,9 @@ package elasticsearch_utils
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"log"
-	"net/http"
 	"strings"
 
 	"github.com/elastic/go-elasticsearch/esapi"
@@ -46,35 +41,6 @@ func FillAdditionalFields(schema, tablename, field string) AdditionalFields {
 		Tags:               tags,
 		Health:             health,
 	}
-}
-
-func NewElasticsearchClient(config ElasticsearchConfig) (*elasticsearch.Client, error) {
-	cfg := elasticsearch.Config{
-		Addresses: config.Addresses,
-		Username:  config.Username,
-		Password:  config.Password,
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				RootCAs: func() *x509.CertPool {
-					// Load CA certificate
-					caCert, err := ioutil.ReadFile("http_ca.crt")
-					if err != nil {
-						log.Fatalf("Error reading CA certificate: %s", err)
-					}
-					caCertPool := x509.NewCertPool()
-					caCertPool.AppendCertsFromPEM(caCert)
-					return caCertPool
-				}(),
-			},
-		},
-	}
-
-	es, err := elasticsearch.NewClient(cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	return es, nil
 }
 
 func ListDatabases(db *sql.DB) ([]string, error) {
