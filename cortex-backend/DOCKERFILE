@@ -1,4 +1,13 @@
-# Use uma imagem base do Golang
+# Estágio 1: Cria um contêiner temporário para copiar o certificado
+FROM alpine:latest AS cert-fetcher
+
+# Instala o curl (ou qualquer outra ferramenta que você precisa para copiar o arquivo)
+RUN apk --no-cache add curl
+
+# Copia o certificado do contêiner ES para o diretório temporário
+RUN curl -o /tmp/http_ca.crt es01:/usr/share/elasticsearch/config/certs/http_ca.crt
+
+# Estágio 2: Constrói a imagem final da sua aplicação
 FROM golang:1.17-alpine AS builder
 
 # Define o diretório de trabalho dentro do contêiner
@@ -13,10 +22,13 @@ RUN go mod download
 # Copia o restante dos arquivos para dentro do contêiner
 COPY . .
 
+# Copia o certificado do contêiner temporário para o diretório do seu aplicativo
+COPY --from=cert-fetcher /tmp/http_ca.crt /app/cmd/app/http_ca.crt
+
 # Compila o código Go para um binário
 RUN CGO_ENABLED=0 GOOS=linux go build -o app .
 
-# Segunda etapa de construção, para criar uma imagem mais leve
+# Estágio 3: Cria a imagem final mínima
 FROM alpine:latest  
 
 # Define o diretório de trabalho dentro do contêiner
