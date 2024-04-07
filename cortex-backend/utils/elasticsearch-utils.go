@@ -30,10 +30,10 @@ type AdditionalFields struct {
 func FillAdditionalFields(schema, tablename, field string) AdditionalFields {
 	// Aqui você pode adicionar a lógica para preencher os campos adicionais com base nos parâmetros fornecidos
 	// Por exemplo:
-	description := ""
-	dataClassification := ""
-	tags := []string{} // exemplo de tags
-	health := ""       // exemplo de saúde do campo
+	description := ""        // Valor padrão para Description
+	dataClassification := "" // Valor padrão para DataClassification
+	tags := []string{}       // Valor padrão para Tags, inicializado como um slice vazio
+	health := ""             // Valor padrão para Health
 
 	return AdditionalFields{
 		Description:        description,
@@ -122,7 +122,7 @@ func ListTablesAndColumns(db *sql.DB, schema string, es *elasticsearch.Client) e
 
 			// Enviar dados para o Elasticsearch
 			req := esapi.IndexRequest{
-				Index:      "catalogo-teste",
+				Index:      "catalogo-teste2",
 				DocumentID: fmt.Sprintf("%s_%s_%s", schema, tablename, field),
 				Body:       strings.NewReader(string(data)),
 				Refresh:    "true",

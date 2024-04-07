@@ -95,13 +95,37 @@ func dataBaseConfig(c *gin.Context) {
 	defer db.Close()
 
 	// Call fetchAndIndexAllMetadata to fetch and index all metadata
-	err = fetchAndIndexAllMetadata(db, es, "metadata_index")
+	err = fetchAndIndexAllMetadata(db, es, "metadata_index2")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Metadata indexed successfully"})
+}
+
+type AdditionalFields struct {
+	Description        string   `json:"description"`
+	DataClassification string   `json:"data_classification"`
+	Tags               []string `json:"tags"`
+	Health             string   `json:"health"`
+}
+
+// Função para preencher os campos adicionais de um documento
+func FillAdditionalFields(schema, tablename, field string) AdditionalFields {
+	// Aqui você pode adicionar a lógica para preencher os campos adicionais com base nos parâmetros fornecidos
+	// Por exemplo:
+	description := ""        // Valor padrão para Description
+	dataClassification := "" // Valor padrão para DataClassification
+	tags := []string{}       // Valor padrão para Tags, inicializado como um slice vazio
+	health := ""             // Valor padrão para Health
+
+	return AdditionalFields{
+		Description:        description,
+		DataClassification: dataClassification,
+		Tags:               tags,
+		Health:             health,
+	}
 }
 
 func fetchAndIndexAllMetadata(db *sql.DB, es *elasticsearch.Client, indexName string) error {
@@ -151,10 +175,18 @@ func fetchAndIndexAllMetadata(db *sql.DB, es *elasticsearch.Client, indexName st
 				wg.Add(1)
 				go func(databaseName, tableName, columnName string) {
 					defer wg.Done()
+					// Chame a função FillAdditionalFields para obter os campos adicionais
+					additionalFields := FillAdditionalFields(databaseName, tableName, columnName)
+
+					// Inclua os campos adicionais no mapa metadata
 					metadata := map[string]interface{}{
-						"database_name": databaseName,
-						"table_name":    tableName,
-						"column_name":   columnName,
+						"database_name":       databaseName,
+						"table_name":          tableName,
+						"column_name":         columnName,
+						"description":         additionalFields.Description,
+						"data_classification": additionalFields.DataClassification,
+						"tags":                additionalFields.Tags,
+						"health":              additionalFields.Health,
 					}
 					err := indexMetadataIntoElasticsearch(es, indexName, []map[string]interface{}{metadata})
 					if err != nil {
@@ -171,16 +203,16 @@ func fetchAndIndexAllMetadata(db *sql.DB, es *elasticsearch.Client, indexName st
 
 func indexMetadataIntoElasticsearch(es *elasticsearch.Client, indexName string, metadata []map[string]interface{}) error {
 	for _, item := range metadata {
-		// Convert the item map to JSON
+		// Converta o item map para JSON
 		jsonStr, err := json.Marshal(item)
 		if err != nil {
 			return err
 		}
 
-		// Create a request body from the JSON string
+		// Crie um corpo de requisição a partir da string JSON
 		req := esapi.IndexRequest{
 			Index:      indexName,
-			DocumentID: "", // Let Elasticsearch auto-generate the ID
+			DocumentID: "", // Deixe o Elasticsearch gerar o ID automaticamente
 			Body:       strings.NewReader(string(jsonStr)),
 			Refresh:    "true",
 		}
