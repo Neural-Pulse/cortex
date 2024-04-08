@@ -4,4 +4,4 @@ Content-Type: application/json
 {
   "dsn": "srv-cortex:12345678@tcp(localhost:3306)/",
   "dbType": "mysql"
-}
+} 
