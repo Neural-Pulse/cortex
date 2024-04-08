@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/cortex-logo-readme.png" alt="Logo do seu projeto" width="500"/>
+  <img src="assets/cortex-logo-v2.png" alt="Logo do seu projeto" width="500"/>
 </p>
 
 # Cortex
