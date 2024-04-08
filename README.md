@@ -1,4 +1,6 @@
-![Cortex Logo](assets/cortex-logo-no-bg.png)
+<p align="center">
+  <img src="assets/cortex-logo-readme.png" alt="Logo do seu projeto" width="500"/>
+</p>
 
 # Cortex
 
