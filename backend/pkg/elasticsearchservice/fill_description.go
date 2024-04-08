@@ -90,7 +90,7 @@ func StartService(esConfig elasticsearch.Config) {
 				fmt.Println("Colunas com descrição vazia:")
 				prompt := fmt.Sprintf("Por favor, forneça uma descrição para cada uma das seguintes colunas de bancos de dados %s, seguindo o formato 'nome_da_coluna:descrição, nome_da_coluna:descrição, ...'. Certifique-se de separar cada par 'nome_da_coluna:descrição' por vírgula (,).", strings.Join(columns, ", "))
 				response := sendPromptToLLM("AIzaSyBovLANQbWmMZTqph7PKv9CPvXD5jT8ohE", prompt)
-				processLLMResponse(response, columns)
+				processLLMResponse(es, response, columns)
 			} else {
 				fmt.Println("Nenhuma coluna com descrição vazia encontrada.")
 			}
@@ -150,7 +150,7 @@ func sendPromptToLLM(apiKey string, prompt string) string {
 	return string(responseBody)
 }
 
-func processLLMResponse(response string, columnNames []string) {
+func processLLMResponse(es *elasticsearch.Client, response string, columnNames []string) {
 	var apiResponse map[string]interface{}
 	err := json.Unmarshal([]byte(response), &apiResponse)
 	if err != nil {
@@ -200,8 +200,46 @@ func processLLMResponse(response string, columnNames []string) {
 	for _, columnName := range columnNames {
 		if description, ok := descriptions[columnName]; ok {
 			fmt.Printf("%s: %s\n", columnName, description)
+			updateQuery := map[string]interface{}{
+				"query": map[string]interface{}{
+					"term": map[string]interface{}{
+						"column_name.keyword": columnName,
+					},
+				},
+				"script": map[string]interface{}{
+					"source": "ctx._source.description = params.description",
+					"params": map[string]interface{}{
+						"description": description,
+					},
+				},
+			}
+
+			var buf bytes.Buffer
+			if err := json.NewEncoder(&buf).Encode(updateQuery); err != nil {
+				log.Printf("Erro ao codificar a consulta de atualização: %s", err)
+				continue
+			}
+
+			res, err := es.UpdateByQuery(
+				[]string{"metadata_index3"},
+				es.UpdateByQuery.WithBody(&buf),
+				es.UpdateByQuery.WithContext(context.Background()),
+				es.UpdateByQuery.WithPretty(),
+			)
+			if err != nil {
+				log.Printf("Erro ao atualizar o documento no Elasticsearch: %s", err)
+				continue
+			}
+			defer res.Body.Close()
+
+			if res.IsError() {
+				log.Printf("Erro na resposta do Elasticsearch: %s", res.String())
+			} else {
+				log.Printf("Documento atualizado com sucesso para a coluna %s", columnName)
+			}
 		} else {
 			fmt.Printf("%s: Descrição não encontrada\n", columnName)
+
 		}
 	}
 }
