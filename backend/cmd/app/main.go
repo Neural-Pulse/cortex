@@ -19,6 +19,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/neural-pulse/cortex/backend/pkg/elasticsearchservice"
 	"github.com/neural-pulse/cortex/backend/pkg/logging"
+	"go.uber.org/zap"
 )
 
 var es *elasticsearch.Client
@@ -26,14 +27,14 @@ var es *elasticsearch.Client
 func main() {
 	logger, err := logging.ConfigureLogger()
 	if err != nil {
-		log.Fatalf("Failed to configure logger: %v", err)
+		logger.Fatal("Failed to configure logger: %v", zap.Error(err))
 	}
 
 	logger.Info("Aplicação iniciada")
 
 	caCert, err := ioutil.ReadFile("http_ca.crt")
 	if err != nil {
-		log.Fatalf("Failed to read CA certificate: %s", err)
+		logger.Fatal("Failed to read CA certificate: %s", zap.Error(err))
 	}
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(caCert)
@@ -57,25 +58,24 @@ func main() {
 
 	es, err = elasticsearch.NewClient(esConfig)
 	if err != nil {
-		log.Fatalf("Error creating the client: %s", err)
+		logger.Fatal("Error creating the client: %s", zap.Error(err))
 	}
 
-	elasticsearchservice.StartService(esConfig)
+	elasticsearchservice.StartService(esConfig, logger)
 
 	// Mantém o programa em execução
 
 	res, err := es.Ping(es.Ping.WithContext(context.Background()))
 	if err != nil {
-		log.Fatalf("Error pinging Elasticsearch: %s", err)
+		logger.Fatal("Error pinging Elasticsearch: %s", zap.Error(err))
 	}
 	defer res.Body.Close()
 
 	if res.IsError() {
-		log.Fatalf("Elasticsearch ping failed: %s", res.String())
+		logger.Fatal("Elasticsearch ping failed: %s", zap.Error(err))
 	}
 
-	log.Println("Successfully pinged Elasticsearch")
-	logging.SendLogToElasticsearch(es, "This is a test log")
+	logging.SendLogToElasticsearch(es, "This is a test log", logger)
 	logger.Info("Successfully pinged Elasticsearch")
 
 	r := gin.Default()
