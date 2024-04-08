@@ -122,7 +122,7 @@ func ListTablesAndColumns(db *sql.DB, schema string, es *elasticsearch.Client) e
 
 			// Enviar dados para o Elasticsearch
 			req := esapi.IndexRequest{
-				Index:      "catalogo-teste2",
+				Index:      "catalogo-teste3",
 				DocumentID: fmt.Sprintf("%s_%s_%s", schema, tablename, field),
 				Body:       strings.NewReader(string(data)),
 				Refresh:    "true",

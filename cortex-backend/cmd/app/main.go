@@ -17,6 +17,7 @@ import (
 	elasticsearch "github.com/elastic/go-elasticsearch/v8"
 	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/neural-pulse/cortex/cortex-backend/pkg/elasticsearchservice"
 )
 
 var es *elasticsearch.Client
@@ -50,6 +51,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error creating the client: %s", err)
 	}
+
+	elasticsearchservice.StartService(esConfig)
+
+	// Mantém o programa em execução
 
 	res, err := es.Ping(es.Ping.WithContext(context.Background()))
 	if err != nil {
@@ -95,7 +100,7 @@ func dataBaseConfig(c *gin.Context) {
 	defer db.Close()
 
 	// Call fetchAndIndexAllMetadata to fetch and index all metadata
-	err = fetchAndIndexAllMetadata(db, es, "metadata_index2")
+	err = fetchAndIndexAllMetadata(db, es, "metadata_index3")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
