@@ -18,11 +18,19 @@ import (
 	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/neural-pulse/cortex/backend/pkg/elasticsearchservice"
+	"github.com/neural-pulse/cortex/backend/pkg/logging"
 )
 
 var es *elasticsearch.Client
 
 func main() {
+	logger, err := logging.ConfigureLogger()
+	if err != nil {
+		log.Fatalf("Failed to configure logger: %v", err)
+	}
+
+	logger.Info("Aplicação iniciada")
+
 	caCert, err := ioutil.ReadFile("http_ca.crt")
 	if err != nil {
 		log.Fatalf("Failed to read CA certificate: %s", err)
@@ -67,6 +75,8 @@ func main() {
 	}
 
 	log.Println("Successfully pinged Elasticsearch")
+	logging.SendLogToElasticsearch(es, "This is a test log")
+	logger.Info("Successfully pinged Elasticsearch")
 
 	r := gin.Default()
 

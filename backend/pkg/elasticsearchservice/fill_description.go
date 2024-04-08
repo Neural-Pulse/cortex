@@ -9,11 +9,19 @@ import (
 	"log"
 	"net/http"
 	"regexp"
+	"runtime"
 	"strings"
 	"time"
 
 	"github.com/elastic/go-elasticsearch/v8"
+	"go.uber.org/zap"
 )
+
+func memoryUsage() string {
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	return fmt.Sprintf("%v MiB", m.Alloc/1024/1024)
+}
 
 func SearchEmptyDescriptions(es *elasticsearch.Client) ([]string, error) {
 	query := map[string]interface{}{
@@ -67,33 +75,40 @@ func SearchEmptyDescriptions(es *elasticsearch.Client) ([]string, error) {
 }
 
 // StartService inicia o serviço de consulta ao Elasticsearch e envia prompts para a API LLM.
-func StartService(esConfig elasticsearch.Config) {
+func StartService(esConfig elasticsearch.Config, logger *zap.Logger) {
 	go func() {
 		// Cria um novo cliente Elasticsearch com a configuração fornecida
 		es, err := elasticsearch.NewClient(esConfig)
 		if err != nil {
-			log.Fatalf("Erro ao criar o cliente Elasticsearch: %s", err)
+			logger.Fatal("Error create client Elasticsearch: %s", zap.Error(err))
 		}
 
 		// Log para confirmar que o serviço iniciou
-		log.Println("Iniciando o serviço de consulta ao Elasticsearch...")
+		logger.Info("Initialize query service Elasticsearch...")
 
 		// Loop infinito que executa a função de busca a cada 3 minutos
 		for {
+			startTime := time.Now()
+			logger.Info("Iniciando a busca por descrições vazias...")
 			columns, err := SearchEmptyDescriptions(es)
 			if err != nil {
-				log.Printf("Erro ao buscar colunas com descrição vazia: %s", err)
+				logger.Error("Error on search empty description: %s", zap.Error(err))
 				continue
 			}
 
 			if len(columns) > 0 {
-				fmt.Println("Colunas com descrição vazia:")
+				logger.Info("Found empty description:")
 				prompt := fmt.Sprintf("Por favor, forneça uma descrição para cada uma das seguintes colunas de bancos de dados %s, seguindo o formato 'nome_da_coluna:descrição, nome_da_coluna:descrição, ...'. Certifique-se de separar cada par 'nome_da_coluna:descrição' por vírgula (,).", strings.Join(columns, ", "))
 				response := sendPromptToLLM("AIzaSyBovLANQbWmMZTqph7PKv9CPvXD5jT8ohE", prompt)
 				processLLMResponse(es, response, columns)
 			} else {
-				fmt.Println("Nenhuma coluna com descrição vazia encontrada.")
+				logger.Info("Nenhuma coluna com descrição vazia encontrada.")
 			}
+
+			logger.Info("Busca concluída",
+				zap.String("duração", time.Since(startTime).String()),
+				zap.String("uso de memória", memoryUsage()),
+			)
 
 			// Aguarda 3 minutos antes de executar a próxima iteração
 			time.Sleep(3 * time.Minute)
