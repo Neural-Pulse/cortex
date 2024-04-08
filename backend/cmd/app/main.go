@@ -17,7 +17,7 @@ import (
 	elasticsearch "github.com/elastic/go-elasticsearch/v8"
 	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/neural-pulse/cortex/cortex-backend/pkg/elasticsearchservice"
+	"github.com/neural-pulse/cortex/backend/pkg/elasticsearchservice"
 )
 
 var es *elasticsearch.Client
@@ -43,7 +43,7 @@ func main() {
 	esConfig := elasticsearch.Config{
 		Addresses: []string{"https://localhost:9200"},
 		Username:  "elastic",
-		Password:  "soVw2YhEfHb1*H8Tf7K_",
+		Password:  "RbXM5XOGW-PpTl9HDonA",
 		Transport: httpClient.Transport,
 	}
 

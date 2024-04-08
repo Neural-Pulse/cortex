@@ -88,7 +88,7 @@ func StartService(esConfig elasticsearch.Config) {
 
 			if len(columns) > 0 {
 				fmt.Println("Colunas com descrição vazia:")
-				prompt := fmt.Sprintf("De a descrição  para os seguinte nomes de colunas de databases separando-as por ponto e virgula: %s", strings.Join(columns, ", "))
+				prompt := fmt.Sprintf("Por favor, forneça uma descrição para cada uma das seguintes colunas de bancos de dados %s, seguindo o formato 'nome_da_coluna:descrição, nome_da_coluna:descrição, ...'. Certifique-se de separar cada par 'nome_da_coluna:descrição' por vírgula (,).", strings.Join(columns, ", "))
 				response := sendPromptToLLM("AIzaSyBovLANQbWmMZTqph7PKv9CPvXD5jT8ohE", prompt)
 				processLLMResponse(response, columns)
 			} else {
@@ -184,7 +184,7 @@ func processLLMResponse(response string, columnNames []string) {
 
 	text := parts[0].(map[string]interface{})["text"].(string)
 
-	re := regexp.MustCompile(`\*\s*([^:]+):\s*(.+)`)
+	re := regexp.MustCompile(`([^\s:]+):\s*([^,]+)`)
 	matches := re.FindAllStringSubmatch(text, -1)
 
 	descriptions := make(map[string]string)
