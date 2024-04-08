@@ -1,7 +1,10 @@
 'use client';
 
 import https from 'https';
+// Certifique-se de que 'use client' seja removido, pois não é necessário e pode causar erros.
 import { useState } from "react";
+import axios from 'axios';
+import DataCard from './components/DataCard'; // Ajuste o caminho conforme necessário
 
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -9,65 +12,49 @@ export default function Home() {
 
   const handleSearch = async () => {
     try {
-      const response = await fetch("/api/search", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          query: {
-            query_string: {
-              query: searchQuery,
-            },
+      const response = await axios.post('/api/search', {
+        query: {
+          query_string: {
+            query: searchQuery,
           },
-        }),
+        },
       });
-  
-      if (!response.ok) {
-        throw new Error(`Erro na requisição: ${response.statusText}`);
-      }
-  
-      const data = await response.json();
-  
-      // Verifica se a propriedade 'hits' existe na resposta
-      if (data.hits && data.hits.hits) {
-        setSearchResults(data.hits.hits);
-      } else {
-        console.error('A resposta não contém a propriedade esperada "hits".', data);
-        // Trate o caso de não haver 'hits' como achar melhor
-      }
+      // Ajuste para extrair os dados de _source
+      const results = response.data.hits.hits.map(hit => hit._source);
+      console.log(results);
+      setSearchResults(results);
     } catch (error) {
-      console.error('Erro ao buscar dados:', error);
-      // Trate o erro como achar melhor
+      console.error('Error searching:', error);
     }
   };
 
   return (
-    <main className="flex flex-col items-center p-8">
-      <div className="mb-8">
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search..."
-          className="border border-gray-300 rounded-lg px-4 py-2 w-96"
-        />
-        <button
-          onClick={handleSearch}
-          className="ml-4 bg-blue-500 text-white rounded-lg px-4 py-2"
-        >
-          Search
-        </button>
-      </div>
+    <main className="bg-white min-h-screen">
+      <div className="container mx-auto p-4">
+        <h1 className="text-2xl font-bold mb-4">Search Page</h1>
+        <div className="mb-4">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search..."
+            className="border border-gray-300 rounded-lg px-4 py-2 w-96"
+          />
+          <button
+            onClick={handleSearch}
+            className="ml-4 bg-blue-500 text-white rounded-lg px-4 py-2"
+          >
+            Search
+          </button>
+        </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-        {searchResults.map((result) => (
-          <div key={result._id} className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-semibold mb-2">{result._source.title}</h2>
-            <p className="text-gray-600">{result._source.description}</p>
-          </div>
-        ))}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {searchResults.map((result, index) => (
+            <DataCard key={index} data={result} />
+          ))}
+        </div>
       </div>
     </main>
   );
 }
+
