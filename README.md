@@ -1,4 +1,4 @@
-![Cortex Logo](assets/cortex-logo-readme.png)
+![Cortex Logo](assets/cortex-logo-no-bg.png)
 
 # Cortex
 
