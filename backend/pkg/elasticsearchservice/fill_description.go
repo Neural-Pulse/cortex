@@ -161,7 +161,6 @@ func sendPromptToLLM(apiKey string, prompt string) string {
 		return ""
 	}
 
-	log.Printf("Resposta da API: %s", string(responseBody))
 	return string(responseBody)
 }
 

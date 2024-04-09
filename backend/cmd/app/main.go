@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -14,7 +15,7 @@ import (
 	"sync"
 
 	"github.com/elastic/go-elasticsearch/esapi"
-	elasticsearch "github.com/elastic/go-elasticsearch/v8"
+	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/neural-pulse/cortex/backend/pkg/elasticsearchservice"
@@ -69,7 +70,12 @@ func main() {
 	if err != nil {
 		logger.Fatal("Error pinging Elasticsearch: %s", zap.Error(err))
 	}
-	defer res.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+
+		}
+	}(res.Body)
 
 	if res.IsError() {
 		logger.Fatal("Elasticsearch ping failed: %s", zap.Error(err))
@@ -107,7 +113,12 @@ func dataBaseConfig(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	defer db.Close()
+	defer func(db *sql.DB) {
+		err := db.Close()
+		if err != nil {
+
+		}
+	}(db)
 
 	// Call fetchAndIndexAllMetadata to fetch and index all metadata
 	err = fetchAndIndexAllMetadata(db, es, "metadata_index3")
@@ -126,8 +137,8 @@ type AdditionalFields struct {
 	Health             string   `json:"health"`
 }
 
-// Função para preencher os campos adicionais de um documento
-func FillAdditionalFields(schema, tablename, field string) AdditionalFields {
+// FillAdditionalFields Função para preencher os campos adicionais de um documento
+func FillAdditionalFields() AdditionalFields {
 	// Aqui você pode adicionar a lógica para preencher os campos adicionais com base nos parâmetros fornecidos
 	// Por exemplo:
 	description := ""        // Valor padrão para Description
@@ -151,7 +162,12 @@ func fetchAndIndexAllMetadata(db *sql.DB, es *elasticsearch.Client, indexName st
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+
+		}
+	}(rows)
 
 	for rows.Next() {
 		var databaseName string
@@ -165,7 +181,12 @@ func fetchAndIndexAllMetadata(db *sql.DB, es *elasticsearch.Client, indexName st
 		if err != nil {
 			return err
 		}
-		defer tableRows.Close()
+		defer func(tableRows *sql.Rows) {
+			err := tableRows.Close()
+			if err != nil {
+
+			}
+		}(tableRows)
 
 		for tableRows.Next() {
 			var tableName string
@@ -191,7 +212,7 @@ func fetchAndIndexAllMetadata(db *sql.DB, es *elasticsearch.Client, indexName st
 				go func(databaseName, tableName, columnName string) {
 					defer wg.Done()
 					// Chame a função FillAdditionalFields para obter os campos adicionais
-					additionalFields := FillAdditionalFields(databaseName, tableName, columnName)
+					additionalFields := FillAdditionalFields()
 
 					// Inclua os campos adicionais no mapa metadata
 					metadata := map[string]interface{}{
@@ -237,7 +258,12 @@ func indexMetadataIntoElasticsearch(es *elasticsearch.Client, indexName string, 
 		if err != nil {
 			return err
 		}
-		defer res.Body.Close()
+		defer func(Body io.ReadCloser) {
+			err := Body.Close()
+			if err != nil {
+
+			}
+		}(res.Body)
 
 		// Check for errors in the response.
 		if res.IsError() {
