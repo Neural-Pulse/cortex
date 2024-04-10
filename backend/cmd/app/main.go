@@ -1,279 +1,49 @@
 package main
 
 import (
-	"context"
-	"crypto/tls"
-	"crypto/x509"
-	"database/sql"
-	"encoding/json"
-	"fmt"
-	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
-	"strings"
-	"sync"
 
-	"github.com/elastic/go-elasticsearch/esapi"
-	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/gin-gonic/gin"
-	_ "github.com/go-sql-driver/mysql"
-	"github.com/neural-pulse/cortex/backend/pkg/elasticsearchservice"
+	"github.com/neural-pulse/cortex/backend/internal/app/elasticsearch"
 	"github.com/neural-pulse/cortex/backend/pkg/logging"
 	"go.uber.org/zap"
 )
 
-var es *elasticsearch.Client
-
 func main() {
 	logger, err := logging.ConfigureLogger()
 	if err != nil {
-		logger.Fatal("Failed to configure logger: %v", zap.Error(err))
+		log.Fatalf("Failed to configure logger: %v", err)
 	}
 
 	logger.Info("Aplicação iniciada")
 
-	caCert, err := ioutil.ReadFile("http_ca.crt")
+	esClient, err := elasticsearch.NewElasticsearchClient([]string{"https://localhost:9200"}, "elastic", "RbXM5XOGW-PpTl9HDonA", "http_ca.crt")
 	if err != nil {
-		logger.Fatal("Failed to read CA certificate: %s", zap.Error(err))
+		log.Fatalf("Error creating the Elasticsearch client: %s", err)
 	}
-	caCertPool := x509.NewCertPool()
-	caCertPool.AppendCertsFromPEM(caCert)
-
-	tlsConfig := &tls.Config{
-		RootCAs: caCertPool,
-	}
-
-	httpClient := &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: tlsConfig,
-		},
-	}
-
-	esConfig := elasticsearch.Config{
-		Addresses: []string{"https://localhost:9200"},
-		Username:  "elastic",
-		Password:  "RbXM5XOGW-PpTl9HDonA",
-		Transport: httpClient.Transport,
-	}
-
-	es, err = elasticsearch.NewClient(esConfig)
-	if err != nil {
-		logger.Fatal("Error creating the client: %s", zap.Error(err))
-	}
-
-	elasticsearchservice.StartService(esConfig, logger)
-
-	// Mantém o programa em execução
-
-	res, err := es.Ping(es.Ping.WithContext(context.Background()))
-	if err != nil {
-		logger.Fatal("Error pinging Elasticsearch: %s", zap.Error(err))
-	}
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-
-		}
-	}(res.Body)
-
-	if res.IsError() {
-		logger.Fatal("Elasticsearch ping failed: %s", zap.Error(err))
-	}
-
-	logging.SendLogToElasticsearch(es, "This is a test log", logger)
-	logger.Info("Successfully pinged Elasticsearch")
 
 	r := gin.Default()
 
-	r.POST("/configurar-banco", dataBaseConfig)
+	r.POST("/configurar-banco", func(c *gin.Context) {
+		dataBaseConfig(c, esClient, logger)
+	})
 
 	if err := r.Run(":8080"); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func dataBaseConfig(c *gin.Context) {
-	if es == nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Elasticsearch client not initialized"})
-		return
-	}
-	var req struct {
-		DSN    string `json:"dsn"`
-		DBType string `json:"dbType"`
-	}
+func dataBaseConfig(c *gin.Context, esClient *elasticsearch.ElasticsearchClient, logger *zap.Logger) {
+	document := map[string]interface{}{"example": "data"}
 
-	if err := c.BindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	db, err := sql.Open(req.DBType, req.DSN)
+	// Corrigido para chamar IndexDocument diretamente no esClient
+	err := esClient.IndexDocument(c.Request.Context(), "your_index", "", document)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	defer func(db *sql.DB) {
-		err := db.Close()
-		if err != nil {
-
-		}
-	}(db)
-
-	// Call fetchAndIndexAllMetadata to fetch and index all metadata
-	err = fetchAndIndexAllMetadata(db, es, "metadata_index3")
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		logger.Error("Failed to index document", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to index document"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Metadata indexed successfully"})
-}
-
-type AdditionalFields struct {
-	Description        string   `json:"description"`
-	DataClassification string   `json:"data_classification"`
-	Tags               []string `json:"tags"`
-	Health             string   `json:"health"`
-}
-
-// FillAdditionalFields Função para preencher os campos adicionais de um documento
-func FillAdditionalFields() AdditionalFields {
-	// Aqui você pode adicionar a lógica para preencher os campos adicionais com base nos parâmetros fornecidos
-	// Por exemplo:
-	description := ""        // Valor padrão para Description
-	dataClassification := "" // Valor padrão para DataClassification
-	tags := []string{}       // Valor padrão para Tags, inicializado como um slice vazio
-	health := ""             // Valor padrão para Health
-
-	return AdditionalFields{
-		Description:        description,
-		DataClassification: dataClassification,
-		Tags:               tags,
-		Health:             health,
-	}
-}
-
-func fetchAndIndexAllMetadata(db *sql.DB, es *elasticsearch.Client, indexName string) error {
-	var wg sync.WaitGroup
-
-	// Fetch all databases (schemas)
-	rows, err := db.Query("SHOW DATABASES")
-	if err != nil {
-		return err
-	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-
-		}
-	}(rows)
-
-	for rows.Next() {
-		var databaseName string
-		if err := rows.Scan(&databaseName); err != nil {
-			return err
-		}
-
-		// Fetch all tables for the current database
-		// Note: Directly concatenating the databaseName into the query
-		tableRows, err := db.Query("SHOW TABLES FROM " + databaseName)
-		if err != nil {
-			return err
-		}
-		defer func(tableRows *sql.Rows) {
-			err := tableRows.Close()
-			if err != nil {
-
-			}
-		}(tableRows)
-
-		for tableRows.Next() {
-			var tableName string
-			if err := tableRows.Scan(&tableName); err != nil {
-				return err
-			}
-
-			// Fetch all columns for the current table
-			// Note: Directly concatenating the databaseName and tableName into the query
-			columnRows, err := db.Query("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = '" + databaseName + "' AND TABLE_NAME = '" + tableName + "'")
-			if err != nil {
-				return err
-			}
-			defer columnRows.Close()
-
-			for columnRows.Next() {
-				var columnName string
-				if err := columnRows.Scan(&columnName); err != nil {
-					return err
-				}
-
-				wg.Add(1)
-				go func(databaseName, tableName, columnName string) {
-					defer wg.Done()
-					// Chame a função FillAdditionalFields para obter os campos adicionais
-					additionalFields := FillAdditionalFields()
-
-					// Inclua os campos adicionais no mapa metadata
-					metadata := map[string]interface{}{
-						"database_name":       databaseName,
-						"table_name":          tableName,
-						"column_name":         columnName,
-						"description":         additionalFields.Description,
-						"data_classification": additionalFields.DataClassification,
-						"tags":                additionalFields.Tags,
-						"health":              additionalFields.Health,
-					}
-					err := indexMetadataIntoElasticsearch(es, indexName, []map[string]interface{}{metadata})
-					if err != nil {
-						log.Printf("Error indexing metadata: %s", err)
-					}
-				}(databaseName, tableName, columnName)
-			}
-		}
-	}
-
-	wg.Wait()
-	return nil
-}
-
-func indexMetadataIntoElasticsearch(es *elasticsearch.Client, indexName string, metadata []map[string]interface{}) error {
-	for _, item := range metadata {
-		// Converta o item map para JSON
-		jsonStr, err := json.Marshal(item)
-		if err != nil {
-			return err
-		}
-
-		// Crie um corpo de requisição a partir da string JSON
-		req := esapi.IndexRequest{
-			Index:      indexName,
-			DocumentID: "", // Deixe o Elasticsearch gerar o ID automaticamente
-			Body:       strings.NewReader(string(jsonStr)),
-			Refresh:    "true",
-		}
-
-		// Perform the request with the client.
-		res, err := req.Do(context.Background(), es)
-		if err != nil {
-			return err
-		}
-		defer func(Body io.ReadCloser) {
-			err := Body.Close()
-			if err != nil {
-
-			}
-		}(res.Body)
-
-		// Check for errors in the response.
-		if res.IsError() {
-			var e map[string]interface{}
-			if err := json.NewDecoder(res.Body).Decode(&e); err != nil {
-				return err
-			}
-			// Print the response status and error information.
-			return fmt.Errorf("[%s] %s: %s", res.Status(), e["error"].(map[string]interface{})["type"], e["error"].(map[string]interface{})["reason"])
-		}
-	}
-	return nil
+	c.JSON(http.StatusOK, gin.H{"message": "Document indexed successfully"})
 }
