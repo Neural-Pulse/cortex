@@ -155,3 +155,6 @@ bazel-testlogs/
 
 #nx files
 .nx
+
+#env
+.env
