@@ -152,3 +152,9 @@ bazel-testlogs/
 *.log
 *.bazelignore
 .yarn
+
+#nx files
+.nx
+
+#env
+.env

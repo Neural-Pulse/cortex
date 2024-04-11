@@ -3,12 +3,9 @@ package schema
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
-	"strings"
 
-	"github.com/elastic/go-elasticsearch/v8" // Importe a versão 8 do cliente Elasticsearch
-	"github.com/elastic/go-elasticsearch/v8/esapi"
+	"github.com/neural-pulse/cortex/backend/internal/app/elasticsearch"
 )
 
 // Schema representa um esquema de banco de dados.
@@ -27,7 +24,7 @@ func (s Schema) Contains(excludedDatabases []string) bool {
 }
 
 // ListTablesAndColumns lista as tabelas e colunas para o esquema atual no banco de dados.
-func (s Schema) ListTablesAndColumns(db *sql.DB, es *elasticsearch.Client) error {
+func (s Schema) ListTablesAndColumns(db *sql.DB, es *elasticsearch.ElasticsearchClient) error {
 	// Implemente a lógica para listar tabelas e colunas para o esquema atual aqui.
 	return nil
 }
@@ -52,7 +49,7 @@ func ListSchemas(db *sql.DB) ([]string, error) {
 	return schemas, nil
 }
 
-func ListTablesAndColumns(db *sql.DB, schema string, es *elasticsearch.Client) error {
+func ListTablesAndColumns(db *sql.DB, schema string, esClient *elasticsearch.ElasticsearchClient) error {
 	tablesQuery := fmt.Sprintf("SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = '%s'", schema)
 	rows, err := db.Query(tablesQuery)
 	if err != nil {
@@ -103,24 +100,11 @@ func ListTablesAndColumns(db *sql.DB, schema string, es *elasticsearch.Client) e
 				"health":              "", // Preencher com o status de saúde apropriado
 			}
 
-			// Indexar dados no Elasticsearch
-			data, err := json.Marshal(columnData)
+			// Indexar dados no Elasticsearch usando o método IndexDocument do ElasticsearchClient
+			err := esClient.IndexDocument(context.Background(), "catalogo", fmt.Sprintf("%s_%s_%s", schema, tablename, field), columnData)
 			if err != nil {
 				return err
 			}
-
-			req := esapi.IndexRequest{
-				Index:      "catalogo",
-				DocumentID: fmt.Sprintf("%s_%s_%s", schema, tablename, field),
-				Body:       strings.NewReader(string(data)),
-				Refresh:    "true",
-			}
-
-			res, err := req.Do(context.Background(), es)
-			if err != nil {
-				return err
-			}
-			defer res.Body.Close()
 		}
 	}
 	return nil
