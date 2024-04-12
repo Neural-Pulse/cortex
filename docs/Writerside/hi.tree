@@ -3,11 +3,9 @@
         SYSTEM "https://resources.jetbrains.com/writerside/1.0/product-profile.dtd">
 
 <instance-profile id="hi"
-                 name="Help Instance"
-                 start-page="Default-topic.md">
+                 name="Cortex"
+                 start-page="How-to-config.md">
 
-    <toc-element topic="Default-topic.md"/>
-    <toc-element topic="Starter.md"/>
     <toc-element topic="How-to-config.md"/>
     <toc-element topic="git.md"/>
     <toc-element topic="C4.md"/>
