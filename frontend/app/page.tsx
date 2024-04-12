@@ -6,6 +6,17 @@ import { useState } from "react";
 import axios from 'axios';
 import DataCard from './components/DataCard'; // Ajuste o caminho conforme necessário
 
+interface Hit {
+  _source: {
+    table_name?: string;
+    description?: string;
+    database_name?: string;
+    column_name?: string;
+    health?: string;
+    data_classification?: string;
+  };
+}
+
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
@@ -20,7 +31,7 @@ export default function Home() {
         },
       });
       // Ajuste para extrair os dados de _source
-      const results = response.data.hits.hits.map(hit => hit._source);
+      const results = response.data.hits.hits.map((hit: Hit) => hit._source);
       console.log(results);
       setSearchResults(results);
     } catch (error) {

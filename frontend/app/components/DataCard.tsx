@@ -1,7 +1,8 @@
 // components/ElasticsearchCard.tsx
 import React from 'react';
+import { DataCardProps } from './DataCard.types';
 
-function DataCard({ data }) {
+function DataCard({ data }: DataCardProps) {
   return (
     <div className="bg-white p-4 rounded shadow">
       <h2 className="text-lg font-bold mb-2">{data?.table_name}</h2>
