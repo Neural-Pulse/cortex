@@ -158,3 +158,5 @@ bazel-testlogs/
 
 #env
 .env
+.nx/installation
+.nx/cache

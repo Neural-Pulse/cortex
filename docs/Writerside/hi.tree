@@ -8,4 +8,6 @@
 
     <toc-element topic="Default-topic.md"/>
     <toc-element topic="Starter.md"/>
+    <toc-element topic="How-to-config.md"/>
+    <toc-element topic="C4.md"/>
 </instance-profile>
